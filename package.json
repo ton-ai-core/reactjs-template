@@ -19,6 +19,7 @@
     "@telegram-apps/telegram-ui": "^2.1.8",
     "@tonconnect/ui-react": "^2.1.0",
     "eruda": "^3.4.1",
+    "lovable-tagger": "^1.1.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.0"
@@ -40,7 +41,9 @@
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.28.0",
     "vite": "^6.2.4",
+    "vite-plugin-checker": "^0.10.2",
     "vite-plugin-mkcert": "^1.17.8",
+    "vite-plugin-run": "^0.6.1",
     "vite-tsconfig-paths": "^5.1.4"
   }
 }

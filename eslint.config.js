@@ -24,6 +24,9 @@ export default tseslint.config(
         ecmaFeatures: {
           jsx: true,
         },
+        // Enable type-aware linting for @typescript-eslint rules (v8+)
+        tsconfigRootDir: import.meta.dirname,
+        projectService: true,
       },
       globals: {
         ...globals.browser,
