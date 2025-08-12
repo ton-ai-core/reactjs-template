@@ -1,0 +1,80 @@
+---
+alwaysApply: true
+---
+# ПРОФИЛЬ: Telegram Mini Apps (React + Vite + TON Connect + Telegram UI)
+
+## Контекст
+Шаблон: `ton-ai-core-reactjs-template`. React 18, TypeScript 5, Vite 6, `@telegram-apps/sdk-react`, `@telegram-apps/telegram-ui`, `@tonconnect/ui-react`. Роутинг: HashRouter. Деплой: GitHub Pages. Dev HTTPS: `vite-plugin-mkcert`. Менеджер пакетов — только npm.
+
+## Заморозка структуры
+Текущие корни `src`: `components/`, `css/`, `helpers/`, `navigation/`, `pages/`, файлы `index.css|tsx`, `init.ts`, `mockEnv.ts`.  
+Допустимые новые корни: `services/` (интеграции, API, TON/TMA-обёртки), `lib/` (чистые утилиты без React).  
+Запрещено без явного запроса: переименовывать/перемещать существующие папки, менять схему роутинга.
+
+## Архитектурные принципы
+- Проектируй перед кодом. Без «гигантских» файлов.
+- Разделяй UI и логику:
+  - UI → `.tsx` (рендер и композиция).
+  - Логика/типы/утилиты → `.ts` (hooks, services, helpers).
+- Слои:
+  - Страницы: `src/pages/<Feature>/<Feature>.tsx` (+ `use<Feature>.ts`, `<Feature>Context.ts`, `types.ts` при нужде).
+  - Переиспользуемые компоненты: `src/components/**`.
+  - Сервисы: `src/services/**` (сетевые вызовы, кэш, TON/TMA), без React.
+  - Утилиты: `src/lib/**` (чистые функции), без React.
+- Импорт стилей Telegram UI **первым** в `src/index.tsx`.
+
+## Хуки и контекст
+- Кастомные хуки инкапсулируют логику, возвращают минимальный API. Именование `useXxx`.
+- `useEffect` только для синхронизации с внешним миром. Не хранить вычислимый стейт.
+- Мемоизация по необходимости: `useMemo`/`useCallback`.
+- Контекст — для данных «глубоко в дереве». Делите на `StateContext` и `DispatchContext`, `value` мемоизируйте. Область провайдера — минимально возможная.
+
+## Каркас
+- Инициализация SDK/темы/вьюпорта: `src/init.ts` (`miniApp.mountSync`, `bindThemeParamsCssVars`, `mountViewport`/`bindViewportCssVars`).
+- Dev-мок только в dev: `src/mockEnv.ts` (tree-shaken из prod).
+- TON Connect: `src/components/Root.tsx` → `<TonConnectUIProvider manifestUrl={publicUrl('tonconnect-manifest.json')}/>`.
+- Обёртка UI: `src/components/App.tsx` → `<AppRoot appearance={isMiniAppDark?'dark':'light'} platform={iosOrBase}>`.
+- Роуты: `src/navigation/routes.tsx`. Новая страница = папка в `pages/<Feature>/` + запись в роуты.
+- Ссылки: `src/components/Link/Link.tsx` (внешние URL через `openLink`).
+
+## Команды (запуск и проверка)
+- Установка: `npm install`
+- **Dev (HTTP)**: `npm run dev`  
+  Стартует линт → билд → Vite dev server на `http://localhost:8080/reactjs-template`
+- **Dev (HTTPS)**: `npm run dev:https`  
+  HTTPS с mkcert на `https://localhost:8080/reactjs-template` (первый запуск может спросить sudo)
+- **Линт**: `npm run lint`  — обязателен до нуля проблем
+- **Сборка**: `npm run build`
+- **Предпросмотр**: `npm run preview`
+- **Деплой (GH Pages)**: `npm run deploy`  (авто `predeploy: build`)
+- Примечание: в dev работает overlay `command-overlay` из `vite.config.ts` — он автоматически гоняет `npm run lint` и показывает ошибки.
+
+## Инварианты
+I1. В prod-бандле нет `mockTelegramEnv`.  
+I2. SDK смонтирован; тема и вьюпорт связаны.  
+I3. `<AppRoot>` получает корректные `appearance/platform`.  
+I4. Пути ассетов учитывают `base`; 0×404 и 0×Mixed Content.  
+I5. `homepage` и `vite.config.ts.base` согласованы (`/<repo>/`).  
+I6. `public/tonconnect-manifest.json` по HTTPS и содержит `url`, `name`, `iconUrl` (PNG/ICO).  
+I7. Внешние ссылки — только через `openLink`.  
+I8. Самоподписанный TLS — только локально.  
+I9. Линт без ошибок перед `dev`/`build`.  
+I10. Бизнес-логика сервисного уровня не лежит в `.tsx`; сетевые вызовы — через `src/services/**`.  
+I11. Общие утилиты React-независимы и лежат в `src/lib/**`.
+
+## Proof-Obligations
+P1. `npm run dev` стартует без ошибок после автоматических `lint` и `build`.  
+P2. `npm run lint` ⇒ exit code 0.  
+P3. `npm run build` ⇒ `dist/` без 404/Mixed Content (учтён `base`).  
+P4. `curl -fsSL <prod>/tonconnect-manifest.json | jq -e '.url and .name and .iconUrl'` ⇒ 0.  
+
+## DEV loop
+1) План задачи и архитектура.  
+2) Код → `npm run dev` или `npm run dev:https`.  
+3) Линт до нуля проблем → `npm run build`.  
+4) Проверка в Telegram-вебвью и DevTools.  
+5) Деплой при необходимости.
+
+## Ограничения
+- Не менять существующие верхнеуровневые папки и конфиги без явного запроса.  
+- Разрешены только новые корни `services/` и `lib/`; остальное — внутри текущей структуры.
