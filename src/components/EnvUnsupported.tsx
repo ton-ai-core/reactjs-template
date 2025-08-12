@@ -2,7 +2,7 @@ import { Placeholder, AppRoot } from '@telegram-apps/telegram-ui';
 import { retrieveLaunchParams, isColorDark, isRGB } from '@telegram-apps/sdk-react';
 import { useMemo } from 'react';
 
-export function EnvUnsupported() {
+export function EnvUnsupported(): JSX.Element {
   const [platform, isDark] = useMemo(() => {
     try {
       const lp = retrieveLaunchParams();

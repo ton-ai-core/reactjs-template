@@ -1,4 +1,4 @@
-import { type FC, useMemo } from 'react';
+import { type FC, type ReactNode, useMemo } from 'react';
 import {
   initDataRaw as _initDataRaw,
   initDataState as _initDataState,
@@ -9,9 +9,25 @@ import { List, Placeholder } from '@telegram-apps/telegram-ui';
 
 import { DisplayData, type DisplayDataRow } from '@/components/DisplayData/DisplayData.tsx';
 import { Page } from '@/components/Page.tsx';
+import { isRecord } from '@/css/classnames.ts';
+
+function toDisplayValue(value: unknown): ReactNode | undefined {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const type = typeof value;
+  if (type === 'string' || type === 'number' || type === 'boolean') {
+    return value as string | number | boolean;
+  }
+  return undefined;
+}
 
 function getUserRows(user: User): DisplayDataRow[] {
-  return Object.entries(user).map(([title, value]) => ({ title, value }));
+  const entries = Object.entries(user as unknown as Record<string, unknown>);
+  return entries.map(([title, value]) => ({ title, value: toDisplayValue(value) }));
 }
 
 export const InitDataPage: FC = () => {
@@ -24,14 +40,14 @@ export const InitDataPage: FC = () => {
     }
     return [
       { title: 'raw', value: initDataRaw },
-      ...Object.entries(initDataState).reduce<DisplayDataRow[]>((acc, [title, value]) => {
-        if (value instanceof Date) {
-          acc.push({ title, value: value.toISOString() });
-        } else if (!value || typeof value !== 'object') {
-          acc.push({ title, value });
-        }
-        return acc;
-      }, []),
+      ...Object.entries(initDataState as unknown as Record<string, unknown>)
+        .reduce<DisplayDataRow[]>((acc, [title, value]) => {
+          const v = toDisplayValue(value);
+          if (v !== undefined || !value || typeof value !== 'object') {
+            acc.push({ title, value: v });
+          }
+          return acc;
+        }, []),
     ];
   }, [initDataState, initDataRaw]);
 
@@ -48,9 +64,19 @@ export const InitDataPage: FC = () => {
   }, [initDataState]);
 
   const chatRows = useMemo<DisplayDataRow[] | undefined>(() => {
-    return !initDataState?.chat
-      ? undefined
-      : Object.entries(initDataState.chat).map(([title, value]) => ({ title, value }));
+    const chatObject = (() : Record<string, unknown> | undefined => {
+      if (!isRecord(initDataState)) {
+        return undefined;
+      }
+      const candidate = (initDataState as Record<string, unknown>)['chat'];
+      if (isRecord(candidate)) {
+        return candidate;
+      }
+      return undefined;
+    })();
+    return chatObject
+      ? Object.entries(chatObject).map(([title, value]) => ({ title, value: toDisplayValue(value) }))
+      : undefined;
   }, [initDataState]);
 
   if (!initDataRows) {

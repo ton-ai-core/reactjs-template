@@ -2,6 +2,14 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
+// [Определения]
+export type ClassPrimitive = string | null | undefined | false;
+interface ClassDictionary {
+  [key: string]: ClassValue;
+}
+type ClassArray = ClassValue[];
+export type ClassValue = ClassPrimitive | ClassArray | ClassDictionary;
+
 /**
  * Function which joins passed values with space following these rules:
  * 1. If value is non-empty string, it will be added to output.
@@ -13,7 +21,7 @@ export function isRecord(v: unknown): v is Record<string, unknown> {
  * @param values - values array.
  * @returns Final class name.
  */
-export function classNames(...values: any[]): string {
+export function classNames(...values: ClassValue[]): string {
   return values
     .map((value) => {
       if (typeof value === 'string') {
@@ -21,17 +29,22 @@ export function classNames(...values: any[]): string {
       }
 
       if (isRecord(value)) {
-        return classNames(Object.entries(value).map((entry) => entry[1] && entry[0]));
+        return classNames(
+          Object.entries(value as Record<string, ClassValue>).map(([key, v]) => (v ? key : '')),
+        );
       }
 
       if (Array.isArray(value)) {
-        return classNames(...value);
+        return classNames(...(value as ClassValue[]));
       }
+
+      return '';
     })
     .filter(Boolean)
     .join(' ');
 }
 
+// [Инварианты]: keys объединяемых объектов — строковые, значения — совместимы с ClassValue
 type UnionStringKeys<U> = U extends U
   ? { [K in keyof U]-?: U[K] extends string | undefined ? K : never }[keyof U]
   : never;
@@ -42,12 +55,9 @@ type UnionRequiredKeys<U> = U extends U
 
 type UnionOptionalKeys<U> = Exclude<UnionStringKeys<U>, UnionRequiredKeys<U>>;
 
-export type MergeClassNames<Tuple extends any[]> =
-// Removes all types from union that will be ignored by the mergeClassNames function.
-  Exclude<Tuple[number], number | string | null | undefined | any[] | boolean> extends infer Union
-    ?
-    & { [K in UnionRequiredKeys<Union>]: string; }
-    & { [K in UnionOptionalKeys<Union>]?: string; }
+export type MergeClassNames<Tuple extends readonly unknown[]> =
+  Exclude<Tuple[number], number | string | null | undefined | readonly unknown[] | boolean> extends infer Union
+    ? (& { [K in UnionRequiredKeys<Union>]: string } & { [K in UnionOptionalKeys<Union>]?: string })
     : never;
 
 /**
@@ -58,13 +68,16 @@ export type MergeClassNames<Tuple extends any[]> =
  * @returns An object with keys from all objects with merged values.
  * @see classNames
  */
-export function mergeClassNames<T extends any[]>(...partials: T): MergeClassNames<T> {
+export function mergeClassNames<T extends readonly Record<string, ClassValue | undefined>[]>(
+  ...partials: T
+): MergeClassNames<T> {
   return partials.reduce<MergeClassNames<T>>((acc, partial) => {
     if (isRecord(partial)) {
       Object.entries(partial).forEach(([key, value]) => {
-        const className = classNames((acc as any)[key], value);
+        const accRecord: Record<string, string | undefined> = acc as unknown as Record<string, string | undefined>;
+        const className = classNames(accRecord[key], value);
         if (className) {
-          (acc as any)[key] = className;
+          accRecord[key] = className;
         }
       });
     }

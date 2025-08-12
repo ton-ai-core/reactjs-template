@@ -5,13 +5,12 @@
   "type": "module",
   "homepage": "https://telegram-mini-apps.github.io/reactjs-template",
   "scripts": {
-    "deploy": "gh-pages -d dist",
-    "dev": "vite",
+    "dev": "npm run lint && npm run build && vite",
     "dev:https": "cross-env HTTPS=true vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "lint:fix": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --fix",
+    "lint": "npx ts-node lint.ts src/",
     "preview": "vite preview",
+    "deploy": "gh-pages -d dist",
     "predeploy": "npm run build"
   },
   "dependencies": {
@@ -25,7 +24,9 @@
     "react-router-dom": "^6.23.0"
   },
   "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",
     "@eslint/js": "^9.23.0",
+    "@ton-ai-core/eslint-plugin-suggest-members": "^1.6.1",
     "@types/node": "^20.12.11",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
@@ -34,8 +35,10 @@
     "@vitejs/plugin-react-swc": "^3.8.1",
     "cross-env": "^7.0.3",
     "eslint": "^9.23.0",
+    "eslint-plugin-jest": "^29.0.1",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
     "gh-pages": "^6.1.1",
     "globals": "^15.2.0",
     "typescript": "^5.8.2",
