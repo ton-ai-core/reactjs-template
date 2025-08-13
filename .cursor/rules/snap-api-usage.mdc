@@ -1,0 +1,77 @@
+---
+alwaysApply: true
+---
+## Snap API: how to query frontend data via curl
+
+This project injects a dev client and exposes REST endpoints from the Vite server. The client is injected by [vite-plugin-snap-api.ts](mdc:vite-plugin-snap-api.ts) and works only in dev. The dev server runs on http://localhost:8080; all endpoints live under /__snap/ regardless of the site base.
+
+### Quick start
+- Base URL: http://localhost:8080
+- Get active session id (SID) in fish shell:
+```fish
+set -l BASE http://localhost:8080
+set -l SID (curl -s "$BASE/__snap/sessions?active=1" | jq -r '.sessions[0].sid')
+```
+
+### Sessions
+- All sessions:
+```bash
+curl -s http://localhost:8080/__snap/sessions | jq
+```
+- Only active (last 45s):
+```bash
+curl -s "http://localhost:8080/__snap/sessions?active=1" | jq
+```
+- Active with custom window (e.g., 2 minutes):
+```bash
+curl -s "http://localhost:8080/__snap/sessions?activeMs=120000" | jq
+```
+
+### Liveness (WS round-trip)
+```bash
+curl -s "http://localhost:8080/__snap/ping?sid=$SID" | jq
+```
+
+### Console logs
+- Full array:
+```bash
+curl -s "http://localhost:8080/__snap/console?sid=$SID" | jq
+```
+- Errors and warnings only (last 50):
+```bash
+curl -s "http://localhost:8080/__snap/console?sid=$SID" | jq 'map(select(.level=="error" or .level=="warn")) | .[-50:]'
+```
+
+### Network + performance
+- Get payload:
+```bash
+curl -s "http://localhost:8080/__snap/network?sid=$SID" | jq
+```
+- Only error-like entries (xhr/fetch status>=400, failed; ws/sse/resource phase==error):
+```bash
+curl -s "http://localhost:8080/__snap/network?sid=$SID" | jq '{errors: (.logs | map(select(.phase=="error" or (has("status") and (.status>=400 or .ok==false)))))}'
+```
+
+### HTML snapshot
+```bash
+curl -s "http://localhost:8080/__snap/html?sid=$SID" > page.html
+```
+
+### DOM screenshot (html2canvas)
+```bash
+curl -s -o shot.webp "http://localhost:8080/__snap/screenshot?sid=$SID"
+```
+
+### Unified dump
+```bash
+curl -s -X POST http://localhost:8080/__snap/dump \
+  -H 'content-type: application/json' \
+  -d '{"sid":"'$SID'","types":["html","console","network","perf","screenshotDom"],"waitMs":8000}' | jq
+```
+
+### Notes
+- Sessions are keyed by browserId:pageId and heartbeat every 15s. Use `?active=1` or `?activeMs=` to filter only live tabs.
+- Network capture covers fetch/xhr/ws/sse/resource; errors are marked with `phase: "error"` and `status>=400` or `ok==false` where applicable.
+- Console includes global `error`, `unhandledrejection`, and CSP violation events.
+- The API is available only while the dev server is running. Start it via `npm run dev` (HTTP) or `npm run dev:https` (HTTPS).
+

@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react-swc';
 import mkcert from 'vite-plugin-mkcert';
 import { componentTagger } from "lovable-tagger";
 import checker from 'vite-plugin-checker';
+import snapApi from './vite-plugin-snap-api';
 // import Run from 'vite-plugin-run'; // no longer needed; we run the command ourselves for overlay
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -67,6 +68,8 @@ export default defineConfig(({ mode }) => {
         server.watcher.on('unlink', runAndOverlay);
       },
     }))(),
+    // Dev-only plugin that exposes REST endpoints and injects a small client via HMR
+    mode === 'development' && snapApi(),
   ].filter(Boolean) as PluginOption[];
 
   return {
