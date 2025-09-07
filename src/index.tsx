@@ -14,6 +14,17 @@ import './index.css';
 // Mock the environment in case, we are outside Telegram.
 import './mockEnv.ts';
 
+// Dev-only stack logger to prefix console output with top callsite.
+if (import.meta.env.DEV) {
+  await import('./devtools/stack-logger.browser')
+    .then(m => m.installStackLogger({ limit: 5, skip: 0, tail: false, ascending: true, mapSources: true, snippet: 1, preferApp: true, onlyApp: false }))
+    .catch(() => {});
+
+  await import('./devtools/dev-instrumentation')
+    .then(m => m.installDevInstrumentation())
+    .catch(() => {});
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 
 try {
