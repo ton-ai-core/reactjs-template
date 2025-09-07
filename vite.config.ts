@@ -1,6 +1,8 @@
 import { defineConfig, type PluginOption } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import react from '@vitejs/plugin-react-swc';
+import viteBabel from 'vite-plugin-babel';
+import functionFrames from './tools/babel-plugin-function-frames.cjs';
 import mkcert from 'vite-plugin-mkcert';
 import { componentTagger } from "lovable-tagger";
 import checker from 'vite-plugin-checker';
@@ -67,6 +69,29 @@ export default defineConfig(({ mode }) => {
         server.watcher.on('unlink', runAndOverlay);
       },
     }))(),
+    // Inject Babel transform for function frames in development (on top of SWC)
+    mode === 'development' && viteBabel({
+      // Only transform our app sources, skip node_modules and devtools/trace files
+      filter: (id: string) => {
+        if (!/[.][tj]sx?$/.test(id)) return false;
+        if (id.includes('/node_modules/')) return false;
+        if (!id.includes('/src/')) return false;
+        if (id.includes('/src/devtools/')) return false;
+        if (id.includes('/src/trace-context')) return false;
+        // Skip entrypoints with top-level awaits and env mocking to avoid startup deadlocks
+        if (id.endsWith('/src/index.tsx')) return false;
+        if (id.endsWith('/src/mockEnv.ts')) return false;
+        return true;
+      },
+      babelConfig: {
+        // Enable parsing TS/TSX + JSX for Babel so our plugin can run
+        plugins: [
+          ["@babel/plugin-syntax-typescript", { isTSX: true }],
+          "@babel/plugin-syntax-jsx",
+          functionFrames,
+        ],
+      },
+    }),
   ].filter(Boolean) as PluginOption[];
 
   return {
@@ -95,4 +120,3 @@ export default defineConfig(({ mode }) => {
     },
   };
 });
-

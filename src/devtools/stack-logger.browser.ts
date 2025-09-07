@@ -1,4 +1,6 @@
 import { parse } from 'error-stack-parser-es/lite';
+import { isDebugVars, dbg as _dbg } from '@/devtools/dbg';
+import { __TRACE } from '@/trace-context';
 
 const base = (p?: string): string => (p ? p.split(/[\\/]/).pop()! : '<anonymous>');
 
@@ -22,15 +24,8 @@ type MappedFrame = { file?: string; line?: number; col?: number; name?: string }
 const srcCache = new Map<string, string[]>();
 const stripQuery = (u: string): string => u.split('?')[0];
 
-// Debug variables helper: let users pass structured vars alongside logs
-const DBG_VARS = Symbol('stackLogger.vars');
-type DebugVarsObject = { [DBG_VARS]: true; vars: Record<string, unknown> };
-function isDebugVars(x: unknown): x is DebugVarsObject {
-  return typeof x === 'object' && x !== null && (DBG_VARS in (x));
-}
-export function dbg(vars: Record<string, unknown>): DebugVarsObject {
-  return { [DBG_VARS]: true, vars } as DebugVarsObject;
-}
+// Re-export dbg for convenience (optional import in app code)
+export const dbg = _dbg;
 
 async function mapFramesToTS(mapSources: boolean, err: Error): Promise<MappedFrame[]> {
   if (!mapSources) {
@@ -102,6 +97,8 @@ export function installStackLogger({
     orig[m] = console[m] as unknown as LogFn;
     console[m] = (...args: unknown[]): void => {
       const captured = new Error();
+      // Snapshot data frames synchronously to avoid losing context across awaits
+      const dataSnap = __TRACE.stack();
       void (async (): Promise<void> => {
         const frames = await mapFramesToTS(mapSources, captured);
         const internalRe = /stack-logger\.browser\.ts|dev-instrumentation\.ts/;
@@ -115,16 +112,28 @@ export function installStackLogger({
         const start = Math.max(0, effectiveEnd - effLimit);
         const windowSlice = orderedBase.slice(start, effectiveEnd);
         const callSite = windowSlice[windowSlice.length - 1];
-        let prior = windowSlice.slice(0, -1);
-        // Prefer/limit app frames only among prior frames; always keep call-site last
-        if (onlyApp) {
-          const only = prior.filter(f => f.file && appPattern.test(String(f.file)));
-          if (only.length) prior = only;
-        } else if (preferApp) {
-          const pref = prior.filter(f => f.file && appPattern.test(String(f.file)));
-          if (pref.length) prior = pref;
+
+        // Merge function-frames (with args) + call-site (real location)
+        const dataFrames = dataSnap as unknown as Array<{ file?: string; line?: number; col?: number; fn?: string; args?: Record<string, unknown> }>;
+        const dataTailCount = (limit && limit > 0) ? Math.max(0, Math.min(Math.max(0, limit - 1), dataFrames.length)) : dataFrames.length;
+        const dataTail = dataFrames.slice(-dataTailCount);
+
+        // Fallback to prior parsed frames if no data frames are available
+        let priorFrames: Array<{ file?: string; line?: number; col?: number; fn?: string; name?: string; args?: Record<string, unknown> }>;
+        if (dataTail.length > 0) {
+          priorFrames = dataTail.map(df => ({ file: df.file, line: df.line, col: df.col, fn: df.fn, args: df.args }));
+        } else {
+          let prior = windowSlice.slice(0, -1);
+          if (onlyApp) {
+            const only = prior.filter(f => f.file && appPattern.test(String(f.file)));
+            if (only.length) prior = only;
+          } else if (preferApp) {
+            const pref = prior.filter(f => f.file && appPattern.test(String(f.file)));
+            if (pref.length) prior = pref;
+          }
+          priorFrames = prior;
         }
-        const slice = callSite ? [...prior, callSite] : prior;
+        const combined = callSite ? [...priorFrames, callSite] : priorFrames;
 
         const parts: string[] = [];
         const debugVars: Record<string, unknown>[] = [];
@@ -137,18 +146,31 @@ export function installStackLogger({
           }
           return true;
         });
-        for (let i = 0; i < slice.length; i++) {
-          const f = slice[i];
-          const name = f.name ? ` → ${f.name}` : '';
+        type CombinedFrame = { file?: string; line?: number; col?: number; fn?: string; name?: string; args?: Record<string, unknown> };
+        const toUrl = (file?: string): string | undefined => {
+          if (!file) return undefined;
+          if (/^https?:\/\//.test(file)) return file;
+          if (file.startsWith('/')) return file;
+          const baseUrl = import.meta.env.BASE_URL || '/';
+          return `${baseUrl}${file}`;
+        };
+
+        for (let i = 0; i < combined.length; i++) {
+          const f = combined[i] as CombinedFrame;
+          const showName = f.fn || f.name;
+          const name = showName ? ` → ${showName}` : '';
           const header = `  ${i + 1}. ${base(f.file)}:${f.line}:${f.col}${name}`;
           if (snippet > 0) {
             // Mark internal fetch to avoid network tracer logs
             window.__stackLoggerSilence__ = true;
-            const sn = await getSnippet(f.file, f.line, snippet);
+            const sn = await getSnippet(toUrl(f.file), f.line, snippet);
             window.__stackLoggerSilence__ = false;
             if (sn) parts.push(`${header}\n${sn}`); else parts.push(header);
           } else {
             parts.push(header);
+          }
+          if (f.args && Object.keys(f.args).length) {
+            try { parts.push(`     Vars: ${JSON.stringify(f.args)}`); } catch { /* noop */ }
           }
         }
 
@@ -156,7 +178,7 @@ export function installStackLogger({
         if (meta) {
           const appCount = filtered.filter(f => f.file && appPattern.test(String(f.file))).length;
           const debugCfg = `Config{ limit=${limit}, tail=${tail}, skip=${skip}, mapSources=${mapSources}, snippet=${snippet}, onlyApp=${onlyApp}, preferApp=${preferApp}, ascending=${ascending} }`;
-          const debugMeta = `Frames{ total=${filtered.length}, app=${appCount}, used=${slice.length} }`;
+          const debugMeta = `Frames{ total=${filtered.length}, app=${appCount}, used=${combined.length} }`;
           head += `\n\n${debugCfg} ${debugMeta}`;
         }
         if (typeof plainArgs[0] === 'string') {
@@ -179,4 +201,3 @@ export function installStackLogger({
     };
   }
 }
-
