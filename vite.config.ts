@@ -2,7 +2,7 @@ import { defineConfig, type PluginOption } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import react from '@vitejs/plugin-react-swc';
 import viteBabel from 'vite-plugin-babel';
-import functionFrames from './tools/babel-plugin-function-frames.cjs';
+import functionFrames from '@ton-ai-core/devtrace/babel-plugin';
 import mkcert from 'vite-plugin-mkcert';
 import { componentTagger } from "lovable-tagger";
 import checker from 'vite-plugin-checker';
@@ -69,7 +69,7 @@ export default defineConfig(({ mode }) => {
         server.watcher.on('unlink', runAndOverlay);
       },
     }))(),
-    // Inject Babel transform for function frames in development (on top of SWC)
+    // Inject Babel transform for function frames in development (after SWC processing)
     mode === 'development' && viteBabel({
       // Only transform our app sources, skip node_modules and devtools/trace files
       filter: (id: string) => {
@@ -85,9 +85,10 @@ export default defineConfig(({ mode }) => {
       },
       babelConfig: {
         // Enable parsing TS/TSX + JSX for Babel so our plugin can run
+        presets: [
+          ["@babel/preset-typescript", { isTSX: true, allExtensions: true }]
+        ],
         plugins: [
-          ["@babel/plugin-syntax-typescript", { isTSX: true }],
-          "@babel/plugin-syntax-jsx",
           functionFrames,
         ],
       },

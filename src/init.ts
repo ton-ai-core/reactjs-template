@@ -69,6 +69,8 @@ export async function init(options: {
     bindThemeParamsCssVars();
   }
 
+  console.log('testvalue')
+
   if (mountViewport.isAvailable()) {
     await mountViewport();
     bindViewportCssVars();

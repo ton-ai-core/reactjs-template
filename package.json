@@ -8,7 +8,7 @@
     "dev": "npm run lint && npm run build && vite",
     "dev:https": "cross-env HTTPS=true vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "npx ts-node lint.ts src/",
+    "lint": "npx tsx lint.ts src/",
     "preview": "vite preview",
     "deploy": "gh-pages -d dist",
     "predeploy": "npm run build"
@@ -16,6 +16,7 @@
   "dependencies": {
     "@telegram-apps/sdk-react": "^3.3.1",
     "@telegram-apps/telegram-ui": "^2.1.8",
+    "@ton-ai-core/devtrace": "^0.2.0",
     "@tonconnect/ui-react": "^2.1.0",
     "error-stack-parser-es": "^1.0.5",
     "eruda": "^3.4.1",
@@ -29,6 +30,7 @@
     "@babel/core": "^7.28.4",
     "@babel/plugin-syntax-jsx": "^7.27.1",
     "@babel/plugin-syntax-typescript": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",
     "@eslint/js": "^9.23.0",
     "@ton-ai-core/eslint-plugin-suggest-members": "^1.6.2",

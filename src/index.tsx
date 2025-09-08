@@ -16,12 +16,12 @@ import './mockEnv.ts';
 
 // Dev-only stack logger to prefix console output with top callsite.
 if (import.meta.env.DEV) {
-  await import('./devtools/stack-logger.browser')
-    .then(m => m.installStackLogger({ limit: 5, skip: 0, tail: false, ascending: true, mapSources: true, snippet: 1, preferApp: true, onlyApp: false }))
+  await import('@ton-ai-core/devtrace')
+    .then((m: typeof import('@ton-ai-core/devtrace')) => m.installStackLogger({ limit: 5, skip: 0, tail: false, ascending: true, mapSources: true, snippet: 1, preferApp: true, onlyApp: false }))
     .catch(() => {});
 
-  await import('./devtools/dev-instrumentation')
-    .then(m => m.installDevInstrumentation())
+  await import('@ton-ai-core/devtrace')
+    .then((m: typeof import('@ton-ai-core/devtrace')) => m.installDevInstrumentation())
     .catch(() => {});
 }
 
