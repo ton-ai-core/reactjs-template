@@ -81,9 +81,8 @@ async function runESLintFix(targetPath: string): Promise<void> {
 //
 async function getTypeScriptDiagnostics(targetPath: string): Promise<TypeScriptMessage[]> {
   try {
-    const command = targetPath.endsWith('.ts') 
-      ? `npx tsc --noEmit --pretty false ${targetPath}`
-      : `npx tsc --noEmit --pretty false`;
+    // Always use project-wide compilation to respect tsconfig.json settings
+    const command = `npx tsc --noEmit --pretty false`;
     await execAsync(command);
     return []; // No errors if tsc succeeds
   } catch (error: unknown) {
@@ -127,7 +126,7 @@ function filterMessagesByPath(messages: TypeScriptMessage[], targetPath: string)
   }
   
   // If targetPath is a specific file, show only messages from that file
-  if (targetPath.endsWith('.ts')) {
+  if (targetPath.endsWith('.ts') || targetPath.endsWith('.tsx')) {
     const resolvedTarget = path.resolve(targetPath);
     return messages.filter(msg => {
       const resolvedFile = path.resolve(msg.filePath);
