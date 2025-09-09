@@ -240,9 +240,12 @@ function filterMessagesByPath(messages: TypeScriptMessage[], targetPath: string)
       .sort((a, b) => a.level - b.level);
 
     const getLevel = (message: LintMessage): number => {
-      const ruleId = message.source === 'typescript' 
-        ? (message as TypeScriptMessage).code 
-        : (message as ESLintMessage).ruleId;
+      let ruleId: string | null = null;
+      if (message.source === 'typescript') {
+        ruleId = message.code;
+      } else {
+        ruleId = message.ruleId;
+      }
       
       if (!ruleId) return Infinity;
       const lvl = levels.find(L => L.rules.includes(ruleId));
@@ -282,7 +285,8 @@ function filterMessagesByPath(messages: TypeScriptMessage[], targetPath: string)
             continue;
           }
         }
-        const lines = cache.get(filePath)!;
+        const lines = cache.get(filePath);
+        if (!lines) continue;
         const start = Math.max(line - 3, 0);
         const end = Math.min(line + 2, lines.length);
 

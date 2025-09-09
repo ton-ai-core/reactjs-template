@@ -107,6 +107,7 @@ export default defineConfig(({ mode }) => {
     plugins,
     build: {
       target: 'esnext',
+      sourcemap: true,
     },
     publicDir: './public',
     server: {
